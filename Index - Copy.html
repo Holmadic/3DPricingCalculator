@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Print Cost & Invoice Calculator</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="3D Print Cost">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIjNEMiBQcmludCBDb3N0IENhbGN1bGF0b3IiLAogICJzaG9ydF9uYW1lIjogIjNEIENvc3QiLAogICJzdGFydF91cmwiOiAiLiIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiI2Y0ZjZmOSIsCiAgInRoZW1lX2NvbG9yIjogIiMyYjZjYjAiCn0=">
+
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --primary-color: #2b6cb0;
+            --primary-hover: #1a4971;
+            --accent-color: #38a169;
+            --border-color: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            margin: 0;
+            padding: 12px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-top: env(safe-area-inset-top);
+        }
+
+        h1 {
+            color: #2d3748;
+            margin-bottom: 5px;
+            font-size: 1.6rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        @media (min-width: 768px) {
+            .grid {
+                grid-template-columns: 1.2fr 1fr;
+                align-items: start;
+            }
+            body { padding: 20px; }
+            h1 { font-size: 2rem; }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            padding: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 12px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1rem;
+            background-color: #fff;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .inline-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .hardware-group {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr 1fr 1fr;
+            gap: 8px;
+            align-items: end;
+        }
+
+        .material-row, .hardware-row {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            font-size: 1rem;
+            transition: background 0.2s;
+            box-shadow: 0 2px 4px rgba(43, 108, 176, 0.2);
+            text-align: center;
+        }
+
+        .btn:active {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: #718096;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+            box-shadow: none;
+            width: auto;
+            display: inline-block;
+        }
+
+        .btn-danger {
+            background-color: #e53e3e;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            margin-top: 4px;
+            width: auto;
+            display: inline-block;
+            box-shadow: none;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-print {
+            background-color: var(--accent-color);
+            margin-top: 15px;
+            box-shadow: 0 2px 4px rgba(56, 161, 105, 0.2);
+        }
+
+        .results-panel {
+            background: #1a202c;
+            color: white;
+            margin-bottom: 16px;
+        }
+
+        .results-panel h2 {
+            color: #63b3ed;
+            border-bottom-color: #4a5568;
+        }
+
+        .total-display {
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: #48bb78;
+            text-align: center;
+            margin: 15px 0;
+        }
+
+        .breakdown-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        .breakdown-table td {
+            padding: 8px 0;
+            border-bottom: 1px solid #4a5568;
+        }
+
+        .breakdown-table td:last-child {
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .text-muted {
+            font-size: 0.75rem;
+            color: #a0aec0;
+            margin-top: 2px;
+        }
+
+        .db-list {
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+
+        .db-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            background: #f8fafc;
+        }
+
+        .db-item:last-child { border-bottom: none; }
+
+        .db-item-name {
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--primary-color);
+            flex-grow: 1;
+            padding-right: 10px;
+        }
+
+        .db-item-name:hover { text-decoration: underline; }
+
+        .invoice-card {
+            background: #ffffff;
+            color: #333333;
+            border: 2px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 24px;
+            margin-top: 20px;
+            font-family: Courier, monospace, sans-serif;
+        }
+
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px dashed #cbd5e1;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+
+        .invoice-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2d3748;
+            letter-spacing: 1px;
+        }
+
+        .invoice-meta {
+            text-align: right;
+            font-size: 0.85rem;
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 0.9rem;
+        }
+
+        .invoice-table th {
+            background-color: #f1f5f9;
+            text-align: left;
+            padding: 8px;
+            font-weight: bold;
+            border-bottom: 2px solid #cbd5e1;
+        }
+
+        .invoice-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .invoice-total-row {
+            font-weight: bold;
+            font-size: 1.05rem;
+            background-color: #f8fafc;
+        }
+
+        .invoice-footer {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #718096;
+            margin-top: 20px;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 10px;
+        }
+
+        @media print {
+            body { background: white; color: black; padding: 0; }
+            .grid > div:first-child, 
+            .results-panel, 
+            header, 
+            #add-material-btn,
+            #add-hardware-btn,
+            .btn-secondary,
+            .db-ledger-card,
+            .btn-print { display: none !important; }
+            .grid { grid-template-columns: 1fr !important; }
+            .invoice-card { border: none !important; padding: 0 !important; margin: 0 !important; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>3D Print Cost & Invoice Calculator</h1>
+    </header>
+
+    <div class="grid">
+        <div>
+            <div class="card" style="margin-bottom: 16px;">
+                <h2>1. Project Details & Source Tracker</h2>
+                <div class="form-group">
+                    <label>Job / Item Description</label>
+                    <input type="text" id="job-description" value="Custom 3D Printed Part Prototype">
+                </div>
+                <div class="inline-group">
+                    <div class="form-group">
+                        <label>Model Designer Name</label>
+                        <input type="text" id="model-designer" placeholder="e.g. Clockspring3D">
+                    </div>
+                    <div class="form-group">
+                        <label>Order Quantity (Pcs)</label>
+                        <input type="number" id="print-qty" value="1" min="1" step="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Source Reference URL</label>
+                    <input type="url" id="model-url" placeholder="https://www.printables.com/model/...">
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 16px;">
+                <h2>2. Materials Used (Per Unit)</h2>
+                <div id="materials-container">
+                    <div class="material-row">
+                        <div class="form-group">
+                            <label>Material / Color Name</label>
+                            <input type="text" class="mat-name" value="Filament Spool 1">
+                        </div>
+                        <div class="inline-group">
+                            <div class="form-group">
+                                <label>Spool Price ($)</label>
+                                <input type="number" class="mat-price" value="12.99" step="0.01" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Spool Weight (g)</label>
+                                <input type="number" class="mat-weight" value="1000" min="1">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Amount Used (g)</label>
+                            <input type="number" class="mat-used" value="150" min="0" step="0.1">
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-secondary" id="add-material-btn">+ Add Another Material</button>
+            </div>
+
+            <div class="card" style="margin-bottom: 16px;">
+                <h2>3. Hardware & Assembly Consumables (Per Unit)</h2>
+                <div id="hardware-container">
+                    </div>
+                <button type="button" class="btn btn-secondary" id="add-hardware-btn">+ Add Hardware / Box / Glue</button>
+            </div>
+
+            <div class="card" style="margin-bottom: 16px;">
+                <h2>4. Print Time & Power (Per Unit)</h2>
+                <div class="form-group">
+                    <label>Total Print Time</label>
+                    <div class="inline-group">
+                        <div>
+                            <input type="number" id="print-hours" value="4.6" min="0" step="any">
+                            <div class="text-muted">Hours</div>
+                        </div>
+                        <div>
+                            <input type="number" id="print-mins" value="0" min="0" max="59">
+                            <div class="text-muted">Minutes</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="inline-group">
+                    <div class="form-group">
+                        <label>Printer Power (W)</label>
+                        <input type="number" id="printer-wattage" value="500" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Elec. Cost ($/kWh)</label>
+                        <input type="number" id="elec-rate" value="1.16" step="0.01" min="0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 16px;">
+                <h2>5. Depreciation & Risk</h2>
+                <div class="inline-group">
+                    <div class="form-group">
+                        <label>Printer Cost ($)</label>
+                        <input type="number" id="printer-cost" value="799" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Lifespan (Hours)</label>
+                        <input type="number" id="printer-life" value="5000" min="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Failure Rate (%)</label>
+                    <input type="number" id="failure-rate" value="5" min="0" max="100">
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 16px;">
+                <h2>6. Labor & Markup</h2>
+                <div class="inline-group">
+                    <div class="form-group">
+                        <label>Labor Rate ($/hr)</label>
+                        <input type="number" id="labor-rate" value="20.00" step="0.01" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Labor Time (Min)</label>
+                        <input type="number" id="labor-time" value="15" min="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Profit Markup (%)</label>
+                    <input type="number" id="markup-rate" value="100" min="0">
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 16px;">
+                <h2>7. Platform Fee Overrides</h2>
+                <div class="form-group">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                        <input type="checkbox" id="etsy-toggle" style="width:auto; margin:0;"> Calculate Active Etsy Fee Strategy
+                    </label>
+                    <div class="text-muted" style="margin-left:22px;">Applies standard Etsy listing (\$0.20), transactional (6.5%), and transaction processing (3% + \$0.25) overrides dynamically.</div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="card results-panel">
+                <h2>Cost Breakdown (Per Unit)</h2>
+                <div style="text-align: center; color: #a0aec0; font-size: 0.8rem;">RECOMMENDED PRICE PER UNIT</div>
+                <div class="total-display" id="total-price">$0.00</div>
+                
+                <table class="breakdown-table">
+                    <tbody>
+                        <tr><td>Material Cost:</td><td id="breakdown-material">$0.00</td></tr>
+                        <tr><td>Hardware/Consumables Cost:</td><td id="breakdown-hardware">$0.00</td></tr>
+                        <tr><td>Electricity Cost:</td><td id="breakdown-electricity">$0.00</td></tr>
+                        <tr><td>Machine Depreciation:</td><td id="breakdown-wear">$0.00</td></tr>
+                        <tr><td>Failure Buffer:</td><td id="breakdown-failure">$0.00</td></tr>
+                        <tr style="border-top: 2px solid #4a5568;"><td style="font-weight: bold; color: #cbd5e1;">Base Production Cost:</td><td id="breakdown-base" style="font-weight: bold; color: #cbd5e1;">$0.00</td></tr>
+                        <tr><td>Labor Cost:</td><td id="breakdown-labor">$0.00</td></tr>
+                        <tr><td>Markup Value:</td><td id="breakdown-markup">$0.00</td></tr>
+                        <tr id="etsy-fee-row" style="display:none; color:#f6ad55;"><td>Etsy Platform Fees:</td><td id="breakdown-etsy">$0.00</td></tr>
+                        <tr id="etsy-net-row" style="display:none; color:#48bb78; font-weight:bold;"><td>Real Est. Net Payout:</td><td id="breakdown-etsy-net">$0.00</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card db-ledger-card" style="margin-bottom: 16px;">
+                <h2>💾 Database Ledger (Saved Local Prints)</h2>
+                <button type="button" class="btn" id="save-db-btn" style="background-color:#4a5568;">Save Current State to DB</button>
+                <div class="db-list" id="db-list-container"></div>
+            </div>
+
+            <div class="invoice-card" id="invoice-block">
+                <div class="invoice-header">
+                    <div>
+                        <div class="invoice-title">INVOICE</div>
+                        <div style="font-size:0.85rem; color:#4a5568; margin-top:4px;">3D Fabrication Services</div>
+                    </div>
+                    <div class="invoice-meta">
+                        <div><strong>Date:</strong> <span id="invoice-date">--/--/----</span></div>
+                        <div><strong>Status:</strong> Quote/Pending</div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 12px; font-size: 0.85rem; line-height:1.4;">
+                    <strong>Line Item Description:</strong><br>
+                    <span id="invoice-job-title" style="color:#4a5568; font-weight:bold;">Custom Print Job</span><br>
+                    <span id="invoice-designer-row" style="font-size:0.75rem; color:#718096; display:none;">Designer: <span id="invoice-designer-name"></span></span><br>
+                    <span id="invoice-url-row" style="font-size:0.75rem; color:#718096; display:none; word-break:break-all;">Ref URL: <span id="invoice-url-link"></span></span>
+                </div>
+
+                <table class="invoice-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th style="text-align: center;">Qty</th>
+                            <th style="text-align: right;">Unit Price</th>
+                            <th style="text-align: right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>3D Printing Production & Material Fees</td>
+                            <td id="invoice-qty-cell" style="text-align: center;">1</td>
+                            <td id="invoice-unit-cell" style="text-align: right;">$0.00</td>
+                            <td id="invoice-total-cell" style="text-align: right;">$0.00</td>
+                        </tr>
+                        <tr class="invoice-total-row">
+                            <td colspan="3" style="text-align: right; padding: 10px;">Amount Due:</td>
+                            <td id="invoice-due-cell" style="text-align: right;">$0.00</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="invoice-footer">
+                    Thank you for your business! Parts are evaluated for functional quality assurances.
+                </div>
+            </div>
+            
+            <button class="btn btn-print" onclick="window.print();">Print / Save Invoice PDF</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date();
+        document.getElementById('invoice-date').innerText = today.toLocaleDateString();
+
+        function attachInputListeners() {
+            document.querySelectorAll('.card input, .card select').forEach(elem => {
+                if(!elem.dataset.listened) {
+                    elem.addEventListener('input', () => { calculateCosts(); autoSaveActiveState(); });
+                    elem.dataset.listened = true;
+                }
+            });
+        }
+
+        document.getElementById('add-material-btn').addEventListener('click', function() {
+            addMaterialRow("", "24.99", "1000", "0");
+            calculateCosts();
+            autoSaveActiveState();
+        });
+
+        document.getElementById('add-hardware-btn').addEventListener('click', function() {
+            addHardwareRow("", "5.00", "50", "0");
+            calculateCosts();
+            autoSaveActiveState();
+        });
+
+        function addMaterialRow(name="", price="24.99", weight="1000", used="0") {
+            const container = document.getElementById('materials-container');
+            const row = document.createElement('div');
+            row.className = 'material-row';
+            row.innerHTML = `
+                <div class="form-group">
+                    <label>Material / Color Name</label>
+                    <input type="text" class="mat-name" value="${name}">
+                </div>
+                <div class="inline-group">
+                    <div class="form-group">
+                        <label>Spool Price ($)</label>
+                        <input type="number" class="mat-price" value="${price}" step="0.01" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Spool Weight (g)</label>
+                        <input type="number" class="mat-weight" value="${weight}" min="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Amount Used (g)</label>
+                    <input type="number" class="mat-used" value="${used}" min="0" step="0.1">
+                </div>
+                <button type="button" class="btn-danger remove-mat-btn">Remove</button>
+            `;
+            container.appendChild(row);
+
+            row.querySelector('.remove-mat-btn').addEventListener('click', function() {
+                row.remove();
+                calculateCosts();
+                autoSaveActiveState();
+            });
+            attachInputListeners();
+        }
+
+        function addHardwareRow(name="", packPrice="5.00", packQty="50", usedQty="0") {
+            const container = document.getElementById('hardware-container');
+            const row = document.createElement('div');
+            row.className = 'hardware-row';
+            row.innerHTML = `
+                <div class="form-group">
+                    <label>Item Name (Screws, Glue, Box, etc.)</label>
+                    <input type="text" class="hw-name" value="${name}" placeholder="e.g. M3x12mm Screws">
+                </div>
+                <div class="hardware-group">
+                    <div class="form-group">
+                        <label>Pack Price ($)</label>
+                        <input type="number" class="hw-price" value="${packPrice}" step="0.01" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Pack Qty</label>
+                        <input type="number" class="hw-pack-qty" value="${packQty}" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Used Qty</label>
+                        <input type="number" class="hw-used" value="${usedQty}" min="0">
+                    </div>
+                    <button type="button" class="btn-danger remove-hw-btn" style="margin-bottom:0;">X</button>
+                </div>
+            `;
+            container.appendChild(row);
+
+            row.querySelector('.remove-hw-btn').addEventListener('click', function() {
+                row.remove();
+                calculateCosts();
+                autoSaveActiveState();
+            });
+            attachInputListeners();
+        }
+
+        function calculateCosts() {
+            // Filament Materials
+            let totalMaterialCost = 0;
+            document.querySelectorAll('.material-row').forEach(row => {
+                const price = parseFloat(row.querySelector('.mat-price').value) || 0;
+                const weight = parseFloat(row.querySelector('.mat-weight').value) || 1;
+                const used = parseFloat(row.querySelector('.mat-used').value) || 0;
+                totalMaterialCost += (price / weight) * used;
+            });
+
+            // Hardware & Consumables
+            let totalHardwareCost = 0;
+            document.querySelectorAll('.hardware-row').forEach(row => {
+                const packPrice = parseFloat(row.querySelector('.hw-price').value) || 0;
+                const packQty = parseFloat(row.querySelector('.hw-pack-qty').value) || 1;
+                const used = parseFloat(row.querySelector('.hw-used').value) || 0;
+                totalHardwareCost += (packPrice / packQty) * used;
+            });
+
+            // Electricity Power
+            const hours = parseFloat(document.getElementById('print-hours').value) || 0;
+            const minutes = parseFloat(document.getElementById('print-mins').value) || 0;
+            const totalHours = hours + (minutes / 60);
+            const wattage = parseFloat(document.getElementById('printer-wattage').value) || 0;
+            const elecRate = parseFloat(document.getElementById('elec-rate').value) || 0;
+            const totalKwh = (wattage * totalHours) / 1000;
+            const totalElecCost = totalKwh * elecRate;
+
+            // Wear & Wear Buffer
+            const printerCost = parseFloat(document.getElementById('printer-cost').value) || 0;
+            const printerLife = parseFloat(document.getElementById('printer-life').value) || 1;
+            const totalWearCost = (printerCost / printerLife) * totalHours;
+
+            // Failure Subtotal
+            const failureRate = parseFloat(document.getElementById('failure-rate').value) || 0;
+            const currentSubtotal = totalMaterialCost + totalHardwareCost + totalElecCost + totalWearCost;
+            const failureBuffer = currentSubtotal * (failureRate / 100);
+            const totalProductionCost = currentSubtotal + failureBuffer;
+
+            // Labor Setup
+            const laborRate = parseFloat(document.getElementById('labor-rate').value) || 0;
+            const laborMins = parseFloat(document.getElementById('labor-time').value) || 0;
+            const totalLaborCost = laborRate * (laborMins / 60);
+
+            // Markup Scaling
+            const markupRate = parseFloat(document.getElementById('markup-rate').value) || 0;
+            const accumulatedCost = totalProductionCost + totalLaborCost;
+            const markupValue = accumulatedCost * (markupRate / 100);
+            
+            let finalUnitPrice = accumulatedCost + markupValue;
+            const orderQty = parseInt(document.getElementById('print-qty').value) || 1;
+            
+            const useEtsy = document.getElementById('etsy-toggle').checked;
+            let etsyUnitFee = 0;
+            let etsyNetPayout = 0;
+
+            if (useEtsy) {
+                etsyUnitFee = 0.20 + (finalUnitPrice * 0.065) + (finalUnitPrice * 0.03) + 0.25;
+                etsyNetPayout = finalUnitPrice - etsyUnitFee;
+                
+                document.getElementById('etsy-fee-row').style.display = 'table-row';
+                document.getElementById('etsy-net-row').style.display = 'table-row';
+                document.getElementById('breakdown-etsy').innerText = `$${etsyUnitFee.toFixed(2)}`;
+                document.getElementById('breakdown-etsy-net').innerText = `$${etsyNetPayout.toFixed(2)}`;
+            } else {
+                document.getElementById('etsy-fee-row').style.display = 'none';
+                document.getElementById('etsy-net-row').style.display = 'none';
+            }
+
+            const macroTotalPrice = finalUnitPrice * orderQty;
+
+            document.getElementById('breakdown-material').innerText = `$${totalMaterialCost.toFixed(2)}`;
+            document.getElementById('breakdown-hardware').innerText = `$${totalHardwareCost.toFixed(2)}`;
+            document.getElementById('breakdown-electricity').innerText = `$${totalElecCost.toFixed(2)}`;
+            document.getElementById('breakdown-wear').innerText = `$${totalWearCost.toFixed(2)}`;
+            document.getElementById('breakdown-failure').innerText = `$${failureBuffer.toFixed(2)}`;
+            document.getElementById('breakdown-base').innerText = `$${totalProductionCost.toFixed(2)}`;
+            document.getElementById('breakdown-labor').innerText = `$${totalLaborCost.toFixed(2)}`;
+            document.getElementById('breakdown-markup').innerText = `$${markupValue.toFixed(2)}`;
+            document.getElementById('total-price').innerText = `$${finalUnitPrice.toFixed(2)}`;
+
+            document.getElementById('invoice-job-title').innerText = document.getElementById('job-description').value || "3D Printing Processing";
+            
+            const designer = document.getElementById('model-designer').value;
+            if(designer) {
+                document.getElementById('invoice-designer-row').style.display = 'inline';
+                document.getElementById('invoice-designer-name').innerText = designer;
+            } else {
+                document.getElementById('invoice-designer-row').style.display = 'none';
+            }
+
+            const sourceUrl = document.getElementById('model-url').value;
+            if(sourceUrl) {
+                document.getElementById('invoice-url-row').style.display = 'inline';
+                document.getElementById('invoice-url-link').innerText = sourceUrl;
+            } else {
+                document.getElementById('invoice-url-row').style.display = 'none';
+            }
+
+            document.getElementById('invoice-qty-cell').innerText = orderQty;
+            document.getElementById('invoice-unit-cell').innerText = `$${finalUnitPrice.toFixed(2)}`;
+            document.getElementById('invoice-total-cell').innerText = `$${macroTotalPrice.toFixed(2)}`;
+            document.getElementById('invoice-due-cell').innerText = `$${macroTotalPrice.toFixed(2)}`;
+        }
+
+        function getProjectCurrentPayload() {
+            const payload = {
+                jobDescription: document.getElementById('job-description').value,
+                modelDesigner: document.getElementById('model-designer').value,
+                modelUrl: document.getElementById('model-url').value,
+                printQty: document.getElementById('print-qty').value,
+                hours: document.getElementById('print-hours').value,
+                mins: document.getElementById('print-mins').value,
+                wattage: document.getElementById('printer-wattage').value,
+                elecRate: document.getElementById('elec-rate').value,
+                printerCost: document.getElementById('printer-cost').value,
+                printerLife: document.getElementById('printer-life').value,
+                failureRate: document.getElementById('failure-rate').value,
+                laborRate: document.getElementById('labor-rate').value,
+                laborTime: document.getElementById('labor-time').value,
+                markupRate: document.getElementById('markup-rate').value,
+                etsyToggle: document.getElementById('etsy-toggle').checked,
+                materials: [],
+                hardware: []
+            };
+            document.querySelectorAll('.material-row').forEach(row => {
+                payload.materials.push({
+                    name: row.querySelector('.mat-name').value,
+                    price: row.querySelector('.mat-price').value,
+                    weight: row.querySelector('.mat-weight').value,
+                    used: row.querySelector('.mat-used').value
+                });
+            });
+            document.querySelectorAll('.hardware-row').forEach(row => {
+                payload.hardware.push({
+                    name: row.querySelector('.hw-name').value,
+                    price: row.querySelector('.hw-price').value,
+                    packQty: row.querySelector('.hw-pack-qty').value,
+                    used: row.querySelector('.hw-used').value
+                });
+            });
+            return payload;
+        }
+
+        function autoSaveActiveState() {
+            localStorage.setItem('3d_calc_last_active', JSON.stringify(getProjectCurrentPayload()));
+        }
+
+        document.getElementById('save-db-btn').addEventListener('click', function() {
+            const payload = getProjectCurrentPayload();
+            let db = JSON.parse(localStorage.getItem('3d_calc_db')) || [];
+            
+            const index = db.findIndex(item => item.jobDescription === payload.jobDescription);
+            if(index > -1) db[index] = payload;
+            else db.push(payload);
+
+            localStorage.setItem('3d_calc_db', JSON.stringify(db));
+            renderLedgerList();
+        });
+
+        window.loadProjectFromDb = function(jobTitle) {
+            const db = JSON.parse(localStorage.getItem('3d_calc_db')) || [];
+            const data = db.find(item => item.jobDescription === jobTitle);
+            if(!data) return;
+
+            document.getElementById('job-description').value = data.jobDescription || '';
+            document.getElementById('model-designer').value = data.modelDesigner || '';
+            document.getElementById('model-url').value = data.modelUrl || '';
+            document.getElementById('print-qty').value = data.printQty || 1;
+            document.getElementById('print-hours').value = data.hours || 0;
+            document.getElementById('print-mins').value = data.mins || 0;
+            document.getElementById('printer-wattage').value = data.wattage || 0;
+            document.getElementById('elec-rate').value = data.elecRate || 0;
+            document.getElementById('printer-cost').value = data.printerCost || 0;
+            document.getElementById('printer-life').value = data.printerLife || 1;
+            document.getElementById('failure-rate').value = data.failureRate || 0;
+            document.getElementById('labor-rate').value = data.laborRate || 0;
+            document.getElementById('labor-time').value = data.laborTime || 0;
+            document.getElementById('markup-rate').value = data.markupRate || 0;
+            document.getElementById('etsy-toggle').checked = data.etsyToggle || false;
+
+            // Restore Materials
+            const matContainer = document.getElementById('materials-container');
+            matContainer.innerHTML = '';
+            if (data.materials && data.materials.length > 0) {
+                data.materials.forEach(m => addMaterialRow(m.name, m.price, m.weight, m.used));
+            } else {
+                addMaterialRow("Filament Spool 1", "12.99", "1000", "150");
+            }
+
+            // Restore Hardware
+            const hwContainer = document.getElementById('hardware-container');
+            hwContainer.innerHTML = '';
+            if (data.hardware && data.hardware.length > 0) {
+                data.hardware.forEach(h => addHardwareRow(h.name, h.price, h.packQty, h.used));
+            }
+
+            calculateCosts();
+            autoSaveActiveState();
+        };
+
+        window.deleteProjectFromDb = function(jobTitle) {
+            let db = JSON.parse(localStorage.getItem('3d_calc_db')) || [];
+            db = db.filter(item => item.jobDescription !== jobTitle);
+            localStorage.setItem('3d_calc_db', JSON.stringify(db));
+            renderLedgerList();
+        };
+
+        function renderLedgerList() {
+            const container = document.getElementById('db-list-container');
+            const db = JSON.parse(localStorage.getItem('3d_calc_db')) || [];
+            container.innerHTML = '';
+
+            if(db.length === 0) {
+                container.innerHTML = `<div style="padding:10px; font-size:0.85rem; color:#718096; text-align:center;">No saved jobs found in DB ledger.</div>`;
+                return;
+            }
+
+            db.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'db-item';
+                row.innerHTML = `
+                    <div class="db-item-name" onclick="loadProjectFromDb('${item.jobDescription.replace(/'/g, "\\'")}')">📋 ${item.jobDescription}</div>
+                    <button class="btn-danger" style="padding: 3px 8px; font-size:0.75rem;" onclick="deleteProjectFromDb('${item.jobDescription.replace(/'/g, "\\'")}')">Delete</button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        const lastActive = localStorage.getItem('3d_calc_last_active');
+        if(lastActive) {
+            try {
+                const data = JSON.parse(lastActive);
+                document.getElementById('job-description').value = data.jobDescription || '';
+                document.getElementById('model-designer').value = data.modelDesigner || '';
+                document.getElementById('model-url').value = data.modelUrl || '';
+                document.getElementById('print-qty').value = data.printQty || 1;
+                document.getElementById('print-hours').value = data.hours || 0;
+                document.getElementById('print-mins').value = data.mins || 0;
+                document.getElementById('printer-wattage').value = data.wattage || 0;
+                document.getElementById('elec-rate').value = data.elecRate || 0;
+                document.getElementById('printer-cost').value = data.printerCost || 0;
+                document.getElementById('printer-life').value = data.printerLife || 1;
+                document.getElementById('failure-rate').value = data.failureRate || 0;
+                document.getElementById('labor-rate').value = data.laborRate || 0;
+                document.getElementById('labor-time').value = data.laborTime || 0;
+                document.getElementById('markup-rate').value = data.markupRate || 0;
+                document.getElementById('etsy-toggle').checked = data.etsyToggle || false;
+                
+                document.getElementById('materials-container').innerHTML = '';
+                if (data.materials && data.materials.length > 0) {
+                    data.materials.forEach(m => addMaterialRow(m.name, m.price, m.weight, m.used));
+                } else {
+                    addMaterialRow("Filament Spool 1", "12.99", "1000", "150");
+                }
+
+                document.getElementById('hardware-container').innerHTML = '';
+                if (data.hardware && data.hardware.length > 0) {
+                    data.hardware.forEach(h => addHardwareRow(h.name, h.price, h.packQty, h.used));
+                }
+            } catch(e) {}
+        } else {
+            // Default setup if clean load
+            document.getElementById('materials-container').innerHTML = '';
+            addMaterialRow("Filament Spool 1", "12.99", "1000", "150");
+        }
+
+        attachInputListeners();
+        calculateCosts();
+        renderLedgerList();
+    });
+</script>
+</body>
+</html>
