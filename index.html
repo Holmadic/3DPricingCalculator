@@ -12,8 +12,6 @@
     
     <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIjNEMiBQcmludCBDb3N0IENhbGN1bGF0b3IiLAogICJzaG9ydF9uYW1lIjogIjNEIENvc3QiLAogICJzdGFydF91cmwiOiAiLiIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiI2Y0ZjZmOSIsCiAgInRoZW1lX2NvbG9yIjogIiMyYjZjYjAiCn0=">
 
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-
     <style>
         :root {
             --bg-color: #f4f6f9;
@@ -507,7 +505,7 @@
                     <button type="button" class="btn" id="drive-push-btn" style="background-color:#34a853;">📤 Push to Cloud</button>
                     <button type="button" class="btn" id="drive-pull-btn" style="background-color:#fbbc05; color: #333;">📥 Pull from Cloud</button>
                 </div>
-                <div class="cloud-sync-status" id="sync-status-msg">Status: Disconnected (Local Cache Only)</div>
+                <div class="cloud-sync-status" id="sync-status-msg">Status: Initializing Auth System...</div>
             </div>
 
             <div class="card db-ledger-card" style="margin-bottom: 16px;">
@@ -569,20 +567,17 @@
 </div>
 
 <script>
-    // Live Client ID injected from credentials configuration
+    // Live Client ID configuration
     const CLIENT_ID = '957037838403-8pk36bqt85p5skgk4jlmv7tr0g9amlcb.apps.googleusercontent.com';
     const SCOPES = 'https://www.googleapis.com/auth/drive.file';
     const FILE_NAME = '3d_printing_calculator_db.json';
 
-    let tokenClient;
+    let tokenClient = null;
     let accessToken = null;
     let cloudFileId = null;
 
-    document.addEventListener('DOMContentLoaded', function() {
-        const today = new Date();
-        document.getElementById('invoice-date').innerText = today.toLocaleDateString();
-
-        // Initialize Google Identity Token client
+    // Google Identity Services Explicit callback hook configuration
+    window.initGoogleAuth = function() {
         try {
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
@@ -590,6 +585,7 @@
                 callback: (tokenResponse) => {
                     if (tokenResponse.error !== undefined) {
                         showSyncStatus("Authentication Error", "#e53e3e");
+                        alert("Google Auth Error Details: " + tokenResponse.error);
                         return;
                     }
                     accessToken = tokenResponse.access_token;
@@ -599,331 +595,438 @@
                     findOrCreateCloudFile();
                 },
             });
-        } catch (e) { console.error("Google Auth Engine Load failure:", e); }
+            showSyncStatus("Google Engine Ready", "#2b6cb0");
+        } catch (e) {
+            console.error("Failed to construct OAuth engine:", e);
+            showSyncStatus("Engine build error", "#e53e3e");
+        }
+    };
 
+    // Fallback automated script element verification injection architecture
+    (function injectGoogleScript() {
+        const existingScript = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+        if (existingScript) existingScript.remove();
+
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => { if (typeof initGoogleAuth === 'function') initGoogleAuth(); };
+        document.head.appendChild(script);
+    })();
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date();
+        document.getElementById('invoice-date').innerText = today.toLocaleDateString();
+
+        // Control triggers
         document.getElementById('drive-auth-btn').addEventListener('click', () => {
-            if (tokenClient) tokenClient.requestAccessToken({ prompt: 'consent' });
+            showSyncStatus("Opening Authentication Panel...", "#fbbc05");
+            if (tokenClient) {
+                try {
+                    tokenClient.requestAccessToken({ prompt: 'consent' });
+                } catch (err) {
+                    alert("Popup Dispatch Failed: " + err.message);
+                    showSyncStatus("Popup blocked or rejected", "#e53e3e");
+                }
+            } else {
+                alert("Google engine is not fully initialized yet. Please verify internet connectivity or ensure an adblocker is not trapping cross-origin scripts.");
+                showSyncStatus("Engine missing", "#e53e3e");
+            }
         });
 
         document.getElementById('drive-push-btn').addEventListener('click', pushToCloud);
         document.getElementById('drive-pull-btn').addEventListener('click', pullFromCloud);
 
-        function showSyncStatus(msg, color="#718096") {
-            const el = document.getElementById('sync-status-msg');
+        // Inputs layout tracking loop initialization
+        attachInputListeners();
+        calculateCosts();
+        renderLedgerList();
+    });
+
+    function showSyncStatus(msg, color="#718096") {
+        const el = document.getElementById('sync-status-msg');
+        if (el) {
             el.innerText = `Status: ${msg}`;
             el.style.color = color;
         }
+    }
 
-        function findOrCreateCloudFile() {
-            showSyncStatus("Locating sync layout...", "#fbbc05");
-            fetch(`https://www.googleapis.com/drive/v3/files?q=name='${FILE_NAME}' and trashed=false`, {
-                headers: { 'Authorization': `Bearer ${accessToken}` }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.files && data.files.length > 0) {
-                    cloudFileId = data.files[0].id;
-                    showSyncStatus("Cloud ledger active.", "#34a853");
-                } else {
-                    showSyncStatus("Structuring tracking space...", "#fbbc05");
-                    createNewCloudFile();
-                }
-            }).catch(() => showSyncStatus("Cloud context error", "#e53e3e"));
-        }
+    function findOrCreateCloudFile() {
+        showSyncStatus("Locating cloud layout...", "#fbbc05");
+        fetch(`https://www.googleapis.com/drive/v3/files?q=name='${FILE_NAME}' and trashed=false`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.files && data.files.length > 0) {
+                cloudFileId = data.files[0].id;
+                showSyncStatus("Cloud ledger active.", "#34a853");
+            } else {
+                showSyncStatus("Structuring tracking space...", "#fbbc05");
+                createNewCloudFile();
+            }
+        }).catch(() => showSyncStatus("Cloud context error", "#e53e3e"));
+    }
 
-        function createNewCloudFile() {
-            const meta = { name: FILE_NAME, mimeType: 'application/json' };
-            const localDb = localStorage.getItem('3d_calc_db') || '[]';
-            
-            const form = new FormData();
-            form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
-            form.append('file', new Blob([localDb], { type: 'application/json' }));
+    function createNewCloudFile() {
+        const meta = { name: FILE_NAME, mimeType: 'application/json' };
+        const localDb = localStorage.getItem('3d_calc_db') || '[]';
+        
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
+        form.append('file', new Blob([localDb], { type: 'application/json' }));
 
-            fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${accessToken}` },
-                body: form
-            })
-            .then(res => res.json())
-            .then(data => {
-                cloudFileId = data.id;
-                showSyncStatus("Cloud mapping configured.", "#34a853");
-            });
-        }
-
-        function pushToCloud() {
-            if (!cloudFileId || !accessToken) return;
-            showSyncStatus("Pushing dataset...", "#fbbc05");
-            const dataToSync = localStorage.getItem('3d_calc_db') || '[]';
-
-            fetch(`https://www.googleapis.com/upload/drive/v3/files/${cloudFileId}?uploadType=media`, {
-                method: 'PATCH',
-                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                body: dataToSync
-            })
-            .then(() => showSyncStatus("Sync transaction complete! 🚀", "#34a853"))
-            .catch(() => showSyncStatus("Push routine rejected.", "#e53e3e"));
-        }
-
-        function pullFromCloud() {
-            if (!cloudFileId || !accessToken) return;
-            showSyncStatus("Downloading snapshot...", "#fbbc05");
-
-            fetch(`https://www.googleapis.com/drive/v3/files/${cloudFileId}?alt=media`, {
-                headers: { 'Authorization': `Bearer ${accessToken}` }
-            })
-            .then(res => res.json())
-            .then(data => {
-                localStorage.setItem('3d_calc_db', JSON.stringify(data));
-                renderLedgerList();
-                showSyncStatus("Dataset merged successfully!", "#34a853");
-            })
-            .catch(() => showSyncStatus("Pull routine rejected.", "#e53e3e"));
-        }
-
-        function attachInputListeners() {
-            document.querySelectorAll('.card input, .card select').forEach(elem => {
-                if(!elem.dataset.listened) {
-                    elem.addEventListener('input', () => { calculateCosts(); autoSaveActiveState(); });
-                    elem.dataset.listened = true;
-                }
-            });
-        }
-
-        document.getElementById('add-material-btn').addEventListener('click', function() {
-            addMaterialRow("", "12.99", "1000", "0");
-            calculateCosts();
-            autoSaveActiveState();
+        fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+            body: form
+        })
+        .then(res => res.json())
+        .then(data => {
+            cloudFileId = data.id;
+            showSyncStatus("Cloud mapping configured.", "#34a853");
         });
+    }
 
-        document.getElementById('add-hardware-btn').addEventListener('click', function() {
-            addHardwareRow("", "5.00", "50", "0");
-            calculateCosts();
-            autoSaveActiveState();
-        });
+    function pushToCloud() {
+        if (!cloudFileId || !accessToken) return;
+        showSyncStatus("Pushing dataset...", "#fbbc05");
+        const dataToSync = localStorage.getItem('3d_calc_db') || '[]';
 
-        function addMaterialRow(name="", price="12.99", weight="1000", used="0") {
-            const container = document.getElementById('materials-container');
-            const row = document.createElement('div');
-            row.className = 'material-row';
-            row.innerHTML = `
-                <div class="form-group">
-                    <label>Material / Color Name</label>
-                    <input type="text" class="mat-name" value="${name}">
-                </div>
-                <div class="inline-group">
-                    <div class="form-group">
-                        <label>Spool Price ($)</label>
-                        <input type="number" class="mat-price" value="${price}" step="0.01" min="0">
-                    </div>
-                    <div class="form-group">
-                        <label>Spool Weight (g)</label>
-                        <input type="number" class="mat-weight" value="${weight}" min="1">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Amount Used (g)</label>
-                    <input type="number" class="mat-used" value="${used}" min="0" step="0.1">
-                </div>
-                <button type="button" class="btn-danger remove-mat-btn">Remove</button>
-            `;
-            container.appendChild(row);
-            row.querySelector('.remove-mat-btn').addEventListener('click', function() {
-                row.remove();
-                calculateCosts();
-                autoSaveActiveState();
-            });
-            attachInputListeners();
-        }
+        fetch(`https://www.googleapis.com/upload/drive/v3/files/${cloudFileId}?uploadType=media`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: dataToSync
+        })
+        .then(() => showSyncStatus("Sync transaction complete! 🚀", "#34a853"))
+        .catch(() => showSyncStatus("Push routine rejected.", "#e53e3e"));
+    }
 
-        function addHardwareRow(name="", packPrice="5.00", packQty="50", usedQty="0") {
-            const container = document.getElementById('hardware-container');
-            const row = document.createElement('div');
-            row.className = 'hardware-row';
-            row.innerHTML = `
-                <div class="form-group">
-                    <label>Item Name (Screws, Glue, Box, etc.)</label>
-                    <input type="text" class="hw-name" value="${name}" placeholder="e.g. M3x12mm Screws">
-                </div>
-                <div class="hardware-group">
-                    <div class="form-group">
-                        <label>Pack Price ($)</label>
-                        <input type="number" class="hw-price" value="${packPrice}" step="0.01" min="0">
-                    </div>
-                    <div class="form-group">
-                        <label>Pack Qty</label>
-                        <input type="number" class="hw-pack-qty" value="${packQty}" min="1">
-                    </div>
-                    <div class="form-group">
-                        <label>Used Qty</label>
-                        <input type="number" class="hw-used" value="${usedQty}" min="0">
-                    </div>
-                    <button type="button" class="btn-danger remove-hw-btn" style="margin-bottom:0;">X</button>
-                </div>
-            `;
-            container.appendChild(row);
-            row.querySelector('.remove-hw-btn').addEventListener('click', function() {
-                row.remove();
-                calculateCosts();
-                autoSaveActiveState();
-            });
-            attachInputListeners();
-        }
+    function pullFromCloud() {
+        if (!cloudFileId || !accessToken) return;
+        showSyncStatus("Downloading snapshot...", "#fbbc05");
 
-        function calculateCosts() {
-            let totalMaterialCost = 0;
-            document.querySelectorAll('.material-row').forEach(row => {
-                const price = parseFloat(row.querySelector('.mat-price').value) || 0;
-                const weight = parseFloat(row.querySelector('.mat-weight').value) || 1;
-                const used = parseFloat(row.querySelector('.mat-used').value) || 0;
-                totalMaterialCost += (price / weight) * used;
-            });
-
-            let totalHardwareCost = 0;
-            document.querySelectorAll('.hardware-row').forEach(row => {
-                const packPrice = parseFloat(row.querySelector('.hw-price').value) || 0;
-                const packQty = parseFloat(row.querySelector('.hw-pack-qty').value) || 1;
-                const used = parseFloat(row.querySelector('.hw-used').value) || 0;
-                totalHardwareCost += (packPrice / packQty) * used;
-            });
-
-            const hours = parseFloat(document.getElementById('print-hours').value) || 0;
-            const minutes = parseFloat(document.getElementById('print-mins').value) || 0;
-            const totalHours = hours + (minutes / 60);
-            const wattage = parseFloat(document.getElementById('printer-wattage').value) || 0;
-            const elecRate = parseFloat(document.getElementById('elec-rate').value) || 0;
-            const totalKwh = (wattage * totalHours) / 1000;
-            const totalElecCost = totalKwh * elecRate;
-
-            const printerCost = parseFloat(document.getElementById('printer-cost').value) || 0;
-            const printerLife = parseFloat(document.getElementById('printer-life').value) || 1;
-            const totalWearCost = (printerCost / printerLife) * totalHours;
-
-            const failureRate = parseFloat(document.getElementById('failure-rate').value) || 0;
-            const currentSubtotal = totalMaterialCost + totalHardwareCost + totalElecCost + totalWearCost;
-            const failureBuffer = currentSubtotal * (failureRate / 100);
-            const totalProductionCost = currentSubtotal + failureBuffer;
-
-            const laborRate = parseFloat(document.getElementById('labor-rate').value) || 0;
-            const laborMins = parseFloat(document.getElementById('labor-time').value) || 0;
-            const totalLaborCost = laborRate * (laborMins / 60);
-
-            const markupRate = parseFloat(document.getElementById('markup-rate').value) || 0;
-            const accumulatedCost = totalProductionCost + totalLaborCost;
-            const markupValue = accumulatedCost * (markupRate / 100);
-            
-            let finalUnitPrice = accumulatedCost + markupValue;
-            const orderQty = parseInt(document.getElementById('print-qty').value) || 1;
-            
-            const useEtsy = document.getElementById('etsy-toggle').checked;
-            if (useEtsy) {
-                let etsyUnitFee = 0.20 + (finalUnitPrice * 0.065) + (finalUnitPrice * 0.03) + 0.25;
-                let etsyNetPayout = finalUnitPrice - etsyUnitFee;
-                document.getElementById('etsy-fee-row').style.display = 'table-row';
-                document.getElementById('etsy-net-row').style.display = 'table-row';
-                document.getElementById('breakdown-etsy').innerText = `$${etsyUnitFee.toFixed(2)}`;
-                document.getElementById('breakdown-etsy-net').innerText = `$${etsyNetPayout.toFixed(2)}`;
-            } else {
-                document.getElementById('etsy-fee-row').style.display = 'none';
-                document.getElementById('etsy-net-row').style.display = 'none';
-            }
-
-            const macroTotalPrice = finalUnitPrice * orderQty;
-
-            document.getElementById('breakdown-material').innerText = `$${totalMaterialCost.toFixed(2)}`;
-            document.getElementById('breakdown-hardware').innerText = `$${totalHardwareCost.toFixed(2)}`;
-            document.getElementById('breakdown-electricity').innerText = `$${totalElecCost.toFixed(2)}`;
-            document.getElementById('breakdown-wear').innerText = `$${totalWearCost.toFixed(2)}`;
-            document.getElementById('breakdown-failure').innerText = `$${failureBuffer.toFixed(2)}`;
-            document.getElementById('breakdown-base').innerText = `$${totalProductionCost.toFixed(2)}`;
-            document.getElementById('breakdown-labor').innerText = `$${totalLaborCost.toFixed(2)}`;
-            document.getElementById('breakdown-markup').innerText = `$${markupValue.toFixed(2)}`;
-            document.getElementById('total-price').innerText = `$${finalUnitPrice.toFixed(2)}`;
-
-            document.getElementById('invoice-job-title').innerText = document.getElementById('job-description').value || "3D Printing Processing";
-            
-            const designer = document.getElementById('model-designer').value;
-            if(designer) {
-                document.getElementById('invoice-designer-row').style.display = 'inline';
-                document.getElementById('invoice-designer-name').innerText = designer;
-            } else {
-                document.getElementById('invoice-designer-row').style.display = 'none';
-            }
-
-            const sourceUrl = document.getElementById('model-url').value;
-            if(sourceUrl) {
-                document.getElementById('invoice-url-row').style.display = 'inline';
-                document.getElementById('invoice-url-link').innerText = sourceUrl;
-            } else {
-                document.getElementById('invoice-url-row').style.display = 'none';
-            }
-
-            document.getElementById('invoice-qty-cell').innerText = orderQty;
-            document.getElementById('invoice-unit-cell').innerText = `$${finalUnitPrice.toFixed(2)}`;
-            document.getElementById('invoice-total-cell').innerText = `$${macroTotalPrice.toFixed(2)}`;
-            document.getElementById('invoice-due-cell').innerText = `$${macroTotalPrice.toFixed(2)}`;
-        }
-
-        function getProjectCurrentPayload() {
-            const payload = {
-                jobDescription: document.getElementById('job-description').value,
-                modelDesigner: document.getElementById('model-designer').value,
-                modelUrl: document.getElementById('model-url').value,
-                printQty: document.getElementById('print-qty').value,
-                hours: document.getElementById('print-hours').value,
-                mins: document.getElementById('print-mins').value,
-                wattage: document.getElementById('printer-wattage').value,
-                elecRate: document.getElementById('elec-rate').value,
-                printerCost: document.getElementById('printer-cost').value,
-                printerLife: document.getElementById('printer-life').value,
-                failureRate: document.getElementById('failure-rate').value,
-                laborRate: document.getElementById('labor-rate').value,
-                laborTime: document.getElementById('labor-time').value,
-                markupRate: document.getElementById('markup-rate').value,
-                etsyToggle: document.getElementById('etsy-toggle').checked,
-                materials: [],
-                hardware: []
-            };
-            document.querySelectorAll('.material-row').forEach(row => {
-                payload.materials.push({
-                    name: row.querySelector('.mat-name').value,
-                    price: row.querySelector('.mat-price').value,
-                    weight: row.querySelector('.mat-weight').value,
-                    used: row.querySelector('.mat-used').value
-                });
-            });
-            document.querySelectorAll('.hardware-row').forEach(row => {
-                payload.hardware.push({
-                    name: row.querySelector('.hw-name').value,
-                    price: row.querySelector('.hw-price').value,
-                    packQty: row.querySelector('.hw-pack-qty').value,
-                    used: row.querySelector('.hw-used').value
-                });
-            });
-            return payload;
-        }
-
-        function autoSaveActiveState() {
-            localStorage.setItem('3d_calc_last_active', JSON.stringify(getProjectCurrentPayload()));
-        }
-
-        document.getElementById('save-db-btn').addEventListener('click', function() {
-            const payload = getProjectCurrentPayload();
-            let db = JSON.parse(localStorage.getItem('3d_calc_db')) || [];
-            
-            const index = db.findIndex(item => item.jobDescription === payload.jobDescription);
-            if(index > -1) db[index] = payload;
-            else db.push(payload);
-
-            localStorage.setItem('3d_calc_db', JSON.stringify(db));
+        fetch(`https://www.googleapis.com/drive/v3/files/${cloudFileId}?alt=media`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            localStorage.setItem('3d_calc_db', JSON.stringify(data));
             renderLedgerList();
+            showSyncStatus("Dataset merged successfully!", "#34a853");
+        })
+        .catch(() => showSyncStatus("Pull routine rejected.", "#e53e3e"));
+    }
+
+    function attachInputListeners() {
+        document.querySelectorAll('.card input, .card select').forEach(elem => {
+            if(!elem.dataset.listened) {
+                elem.addEventListener('input', () => { calculateCosts(); autoSaveActiveState(); });
+                elem.dataset.listened = true;
+            }
+        });
+    }
+
+    document.getElementById('add-material-btn').addEventListener('click', function() {
+        addMaterialRow("", "12.99", "1000", "0");
+        calculateCosts();
+        autoSaveActiveState();
+    });
+
+    document.getElementById('add-hardware-btn').addEventListener('click', function() {
+        addHardwareRow("", "5.00", "50", "0");
+        calculateCosts();
+        autoSaveActiveState();
+    });
+
+    function addMaterialRow(name="", price="12.99", weight="1000", used="0") {
+        const container = document.getElementById('materials-container');
+        const row = document.createElement('div');
+        row.className = 'material-row';
+        row.innerHTML = `
+            <div class="form-group">
+                <label>Material / Color Name</label>
+                <input type="text" class="mat-name" value="${name}">
+            </div>
+            <div class="inline-group">
+                <div class="form-group">
+                    <label>Spool Price ($)</label>
+                    <input type="number" class="mat-price" value="${price}" step="0.01" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Spool Weight (g)</label>
+                    <input type="number" class="mat-weight" value="${weight}" min="1">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Amount Used (g)</label>
+                <input type="number" class="mat-used" value="${used}" min="0" step="0.1">
+            </div>
+            <button type="button" class="btn-danger remove-mat-btn">Remove</button>
+        `;
+        container.appendChild(row);
+        row.querySelector('.remove-mat-btn').addEventListener('click', function() {
+            row.remove();
+            calculateCosts();
+            autoSaveActiveState();
+        });
+        attachInputListeners();
+    }
+
+    function addHardwareRow(name="", packPrice="5.00", packQty="50", usedQty="0") {
+        const container = document.getElementById('hardware-container');
+        const row = document.createElement('div');
+        row.className = 'hardware-row';
+        row.innerHTML = `
+            <div class="form-group">
+                <label>Item Name (Screws, Box, Glue, etc.)</label>
+                <input type="text" class="hw-name" value="${name}" placeholder="e.g. M3x12mm Screws">
+            </div>
+            <div class="hardware-group">
+                <div class="form-group">
+                    <label>Pack Price ($)</label>
+                    <input type="number" class="hw-price" value="${packPrice}" step="0.01" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Pack Qty</label>
+                    <input type="number" class="hw-pack-qty" value="${packQty}" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Used Qty</label>
+                    <input type="number" class="hw-used" value="${usedQty}" min="0">
+                </div>
+                <button type="button" class="btn-danger remove-hw-btn" style="margin-bottom:0;">X</button>
+            </div>
+        `;
+        container.appendChild(row);
+        row.querySelector('.remove-hw-btn').addEventListener('click', function() {
+            row.remove();
+            calculateCosts();
+            autoSaveActiveState();
+        });
+        attachInputListeners();
+    }
+
+    function calculateCosts() {
+        let totalMaterialCost = 0;
+        document.querySelectorAll('.material-row').forEach(row => {
+            const price = parseFloat(row.querySelector('.mat-price').value) || 0;
+            const weight = parseFloat(row.querySelector('.mat-weight').value) || 1;
+            const used = parseFloat(row.querySelector('.mat-used').value) || 0;
+            totalMaterialCost += (price / weight) * used;
         });
 
-        window.loadProjectFromDb = function(jobTitle) {
-            const db = JSON.parse(localStorage.getItem('3d_calc_db')) || [];
-            const data = db.find(item => item.jobDescription === jobTitle);
-            if(!data) return;
+        let totalHardwareCost = 0;
+        document.querySelectorAll('.hardware-row').forEach(row => {
+            const packPrice = parseFloat(row.querySelector('.hw-price').value) || 0;
+            const packQty = parseFloat(row.querySelector('.hw-pack-qty').value) || 1;
+            const used = parseFloat(row.querySelector('.hw-used').value) || 0;
+            totalHardwareCost += (packPrice / packQty) * used;
+        });
 
+        const hours = parseFloat(document.getElementById('print-hours').value) || 0;
+        const minutes = parseFloat(document.getElementById('print-mins').value) || 0;
+        const totalHours = hours + (minutes / 60);
+        const wattage = parseFloat(document.getElementById('printer-wattage').value) || 0;
+        const elecRate = parseFloat(document.getElementById('elec-rate').value) || 0;
+        const totalKwh = (wattage * totalHours) / 1000;
+        const totalElecCost = totalKwh * elecRate;
+
+        const printerCost = parseFloat(document.getElementById('printer-cost').value) || 0;
+        const printerLife = parseFloat(document.getElementById('printer-life').value) || 1;
+        const totalWearCost = (printerCost / printerLife) * totalHours;
+
+        const failureRate = parseFloat(document.getElementById('failure-rate').value) || 0;
+        const currentSubtotal = totalMaterialCost + totalHardwareCost + totalElecCost + totalWearCost;
+        const failureBuffer = currentSubtotal * (failureRate / 100);
+        const totalProductionCost = currentSubtotal + failureBuffer;
+
+        const laborRate = parseFloat(document.getElementById('labor-rate').value) || 0;
+        const laborMins = parseFloat(document.getElementById('labor-time').value) || 0;
+        const totalLaborCost = laborRate * (laborMins / 60);
+
+        const markupRate = parseFloat(document.getElementById('markup-rate').value) || 0;
+        const accumulatedCost = totalProductionCost + totalLaborCost;
+        const markupValue = accumulatedCost * (markupRate / 100);
+        
+        let finalUnitPrice = accumulatedCost + markupValue;
+        const orderQty = parseInt(document.getElementById('print-qty').value) || 1;
+        
+        const useEtsy = document.getElementById('etsy-toggle').checked;
+        if (useEtsy) {
+            let etsyUnitFee = 0.20 + (finalUnitPrice * 0.065) + (finalUnitPrice * 0.03) + 0.25;
+            let etsyNetPayout = finalUnitPrice - etsyUnitFee;
+            document.getElementById('etsy-fee-row').style.display = 'table-row';
+            document.getElementById('etsy-net-row').style.display = 'table-row';
+            document.getElementById('breakdown-etsy').innerText = `$${etsyUnitFee.toFixed(2)}`;
+            document.getElementById('breakdown-etsy-net').innerText = `$${etsyNetPayout.toFixed(2)}`;
+        } else {
+            document.getElementById('etsy-fee-row').style.display = 'none';
+            document.getElementById('etsy-net-row').style.display = 'none';
+        }
+
+        const macroTotalPrice = finalUnitPrice * orderQty;
+
+        document.getElementById('breakdown-material').innerText = `$${totalMaterialCost.toFixed(2)}`;
+        document.getElementById('breakdown-hardware').innerText = `$${totalHardwareCost.toFixed(2)}`;
+        document.getElementById('breakdown-electricity').innerText = `$${totalElecCost.toFixed(2)}`;
+        document.getElementById('breakdown-wear').innerText = `$${totalWearCost.toFixed(2)}`;
+        document.getElementById('breakdown-failure').innerText = `$${failureBuffer.toFixed(2)}`;
+        document.getElementById('breakdown-base').innerText = `$${totalProductionCost.toFixed(2)}`;
+        document.getElementById('breakdown-labor').innerText = `$${totalLaborCost.toFixed(2)}`;
+        document.getElementById('breakdown-markup').innerText = `$${markupValue.toFixed(2)}`;
+        document.getElementById('total-price').innerText = `$${finalUnitPrice.toFixed(2)}`;
+
+        document.getElementById('invoice-job-title').innerText = document.getElementById('job-description').value || "3D Printing Processing";
+        
+        const designer = document.getElementById('model-designer').value;
+        if(designer) {
+            document.getElementById('invoice-designer-row').style.display = 'inline';
+            document.getElementById('invoice-designer-name').innerText = designer;
+        } else {
+            document.getElementById('invoice-designer-row').style.display = 'none';
+        }
+
+        const sourceUrl = document.getElementById('model-url').value;
+        if(sourceUrl) {
+            document.getElementById('invoice-url-row').style.display = 'inline';
+            document.getElementById('invoice-url-link').innerText = sourceUrl;
+        } else {
+            document.getElementById('invoice-url-row').style.display = 'none';
+        }
+
+        document.getElementById('invoice-qty-cell').innerText = orderQty;
+        document.getElementById('invoice-unit-cell').innerText = `$${finalUnitPrice.toFixed(2)}`;
+        document.getElementById('invoice-total-cell').innerText = `$${macroTotalPrice.toFixed(2)}`;
+        document.getElementById('invoice-due-cell').innerText = `$${macroTotalPrice.toFixed(2)}`;
+    }
+
+    function getProjectCurrentPayload() {
+        const payload = {
+            jobDescription: document.getElementById('job-description').value,
+            modelDesigner: document.getElementById('model-designer').value,
+            modelUrl: document.getElementById('model-url').value,
+            printQty: document.getElementById('print-qty').value,
+            hours: document.getElementById('print-hours').value,
+            mins: document.getElementById('print-mins').value,
+            wattage: document.getElementById('printer-wattage').value,
+            elecRate: document.getElementById('elec-rate').value,
+            printerCost: document.getElementById('printer-cost').value,
+            printerLife: document.getElementById('printer-life').value,
+            failureRate: document.getElementById('failure-rate').value,
+            laborRate: document.getElementById('labor-rate').value,
+            laborTime: document.getElementById('labor-time').value,
+            markupRate: document.getElementById('markup-rate').value,
+            etsyToggle: document.getElementById('etsy-toggle').checked,
+            materials: [],
+            hardware: []
+        };
+        document.querySelectorAll('.material-row').forEach(row => {
+            payload.materials.push({
+                name: row.querySelector('.mat-name').value,
+                price: row.querySelector('.mat-price').value,
+                weight: row.querySelector('.mat-weight').value,
+                used: row.querySelector('.mat-used').value
+            });
+        });
+        document.querySelectorAll('.hardware-row').forEach(row => {
+            payload.hardware.push({
+                name: row.querySelector('.hw-name').value,
+                price: row.querySelector('.hw-price').value,
+                packQty: row.querySelector('.hw-pack-qty').value,
+                used: row.querySelector('.hw-used').value
+            });
+        });
+        return payload;
+    }
+
+    function autoSaveActiveState() {
+        localStorage.setItem('3d_calc_last_active', JSON.stringify(getProjectCurrentPayload()));
+    }
+
+    document.getElementById('save-db-btn').addEventListener('click', function() {
+        const payload = getProjectCurrentPayload();
+        let db = JSON.parse(localStorage.getItem('3d_calc_db')) || [];
+        
+        const index = db.findIndex(item => item.jobDescription === payload.jobDescription);
+        if(index > -1) db[index] = payload;
+        else db.push(payload);
+
+        localStorage.setItem('3d_calc_db', JSON.stringify(db));
+        renderLedgerList();
+    });
+
+    window.loadProjectFromDb = function(jobTitle) {
+        const db = JSON.parse(localStorage.getItem('3d_calc_db')) || [];
+        const data = db.find(item => item.jobDescription === jobTitle);
+        if(!data) return;
+
+        document.getElementById('job-description').value = data.jobDescription || '';
+        document.getElementById('model-designer').value = data.modelDesigner || '';
+        document.getElementById('model-url').value = data.modelUrl || '';
+        document.getElementById('print-qty').value = data.printQty || 1;
+        document.getElementById('print-hours').value = data.hours || 0;
+        document.getElementById('print-mins').value = data.mins || 0;
+        document.getElementById('printer-wattage').value = data.wattage || 0;
+        document.getElementById('elec-rate').value = data.elecRate || 0;
+        document.getElementById('printer-cost').value = data.printerCost || 0;
+        document.getElementById('printer-life').value = data.printerLife || 1;
+        document.getElementById('failure-rate').value = data.failureRate || 0;
+        document.getElementById('labor-rate').value = data.laborRate || 0;
+        document.getElementById('labor-time').value = data.laborTime || 0;
+        document.getElementById('markup-rate').value = data.markupRate || 0;
+        document.getElementById('etsy-toggle').checked = data.etsyToggle || false;
+
+        document.getElementById('materials-container').innerHTML = '';
+        if (data.materials && data.materials.length > 0) {
+            data.materials.forEach(m => addMaterialRow(m.name, m.price, m.weight, m.used));
+        } else {
+            addMaterialRow("Filament Spool 1", "12.99", "1000", "150");
+        }
+
+        document.getElementById('hardware-container').innerHTML = '';
+        if (data.hardware && data.hardware.length > 0) {
+            data.hardware.forEach(h => addHardwareRow(h.name, h.price, h.packQty, h.used));
+        }
+
+        calculateCosts();
+        autoSaveActiveState();
+    };
+
+    window.deleteProjectFromDb = function(jobTitle) {
+        let db = JSON.parse(localStorage.getItem('3d_calc_db')) || [];
+        db = db.filter(item => item.jobDescription !== jobTitle);
+        localStorage.setItem('3d_calc_db', JSON.stringify(db));
+        renderLedgerList();
+    };
+
+    function renderLedgerList() {
+        const container = document.getElementById('db-list-container');
+        const db = JSON.parse(localStorage.getItem('3d_calc_db')) || [];
+        container.innerHTML = '';
+
+        if(db.length === 0) {
+            container.innerHTML = `<div style="padding:10px; font-size:0.85rem; color:#718096; text-align:center;">No saved items in DB ledger.</div>`;
+            return;
+        }
+
+        db.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'db-item';
+            row.innerHTML = `
+                <div class="db-item-name" onclick="loadProjectFromDb('${item.jobDescription.replace(/'/g, "\\'")}')">📋 ${item.jobDescription}</div>
+                <button class="btn-danger" style="padding: 3px 8px; font-size:0.75rem;" onclick="deleteProjectFromDb('${item.jobDescription.replace(/'/g, "\\'")}')">Delete</button>
+            `;
+            container.appendChild(row);
+        });
+    }
+
+    // Recover cached layout state snapshots on bootup
+    const lastActive = localStorage.getItem('3d_calc_last_active');
+    if(lastActive) {
+        try {
+            const data = JSON.parse(lastActive);
             document.getElementById('job-description').value = data.jobDescription || '';
             document.getElementById('model-designer').value = data.modelDesigner || '';
             document.getElementById('model-url').value = data.modelUrl || '';
@@ -939,7 +1042,7 @@
             document.getElementById('labor-time').value = data.laborTime || 0;
             document.getElementById('markup-rate').value = data.markupRate || 0;
             document.getElementById('etsy-toggle').checked = data.etsyToggle || false;
-
+            
             document.getElementById('materials-container').innerHTML = '';
             if (data.materials && data.materials.length > 0) {
                 data.materials.forEach(m => addMaterialRow(m.name, m.price, m.weight, m.used));
@@ -951,80 +1054,11 @@
             if (data.hardware && data.hardware.length > 0) {
                 data.hardware.forEach(h => addHardwareRow(h.name, h.price, h.packQty, h.used));
             }
-
-            calculateCosts();
-            autoSaveActiveState();
-        };
-
-        window.deleteProjectFromDb = function(jobTitle) {
-            let db = JSON.parse(localStorage.getItem('3d_calc_db')) || [];
-            db = db.filter(item => item.jobDescription !== jobTitle);
-            localStorage.setItem('3d_calc_db', JSON.stringify(db));
-            renderLedgerList();
-        };
-
-        function renderLedgerList() {
-            const container = document.getElementById('db-list-container');
-            const db = JSON.parse(localStorage.getItem('3d_calc_db')) || [];
-            container.innerHTML = '';
-
-            if(db.length === 0) {
-                container.innerHTML = `<div style="padding:10px; font-size:0.85rem; color:#718096; text-align:center;">No saved items in DB ledger.</div>`;
-                return;
-            }
-
-            db.forEach(item => {
-                const row = document.createElement('div');
-                row.className = 'db-item';
-                row.innerHTML = `
-                    <div class="db-item-name" onclick="loadProjectFromDb('${item.jobDescription.replace(/'/g, "\\'")}')">📋 ${item.jobDescription}</div>
-                    <button class="btn-danger" style="padding: 3px 8px; font-size:0.75rem;" onclick="deleteProjectFromDb('${item.jobDescription.replace(/'/g, "\\'")}')">Delete</button>
-                `;
-                container.appendChild(row);
-            });
-        }
-
-        const lastActive = localStorage.getItem('3d_calc_last_active');
-        if(lastActive) {
-            try {
-                const data = JSON.parse(lastActive);
-                document.getElementById('job-description').value = data.jobDescription || '';
-                document.getElementById('model-designer').value = data.modelDesigner || '';
-                document.getElementById('model-url').value = data.modelUrl || '';
-                document.getElementById('print-qty').value = data.printQty || 1;
-                document.getElementById('print-hours').value = data.hours || 0;
-                document.getElementById('print-mins').value = data.mins || 0;
-                document.getElementById('printer-wattage').value = data.wattage || 0;
-                document.getElementById('elec-rate').value = data.elecRate || 0;
-                document.getElementById('printer-cost').value = data.printerCost || 0;
-                document.getElementById('printer-life').value = data.printerLife || 1;
-                document.getElementById('failure-rate').value = data.failureRate || 0;
-                document.getElementById('labor-rate').value = data.laborRate || 0;
-                document.getElementById('labor-time').value = data.laborTime || 0;
-                document.getElementById('markup-rate').value = data.markupRate || 0;
-                document.getElementById('etsy-toggle').checked = data.etsyToggle || false;
-                
-                document.getElementById('materials-container').innerHTML = '';
-                if (data.materials && data.materials.length > 0) {
-                    data.materials.forEach(m => addMaterialRow(m.name, m.price, m.weight, m.used));
-                } else {
-                    addMaterialRow("Filament Spool 1", "12.99", "1000", "150");
-                }
-
-                document.getElementById('hardware-container').innerHTML = '';
-                if (data.hardware && data.hardware.length > 0) {
-                    data.hardware.forEach(h => addHardwareRow(h.name, h.price, h.packQty, h.used));
-                }
-            } catch(e) {}
-        } else {
-            document.getElementById('materials-container').innerHTML = '';
-            addMaterialRow("Filament Spool 1", "12.99", "1000", "150");
-        }
-
-        attachInputListeners();
-        calculateCosts();
-        renderLedgerList();
-    });
+        } catch(e) {}
+    } else {
+        document.getElementById('materials-container').innerHTML = '';
+        addMaterialRow("Filament Spool 1", "12.99", "1000", "150");
+    }
 </script>
 </body>
 </html>
